@@ -13,10 +13,16 @@ impl Bit {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy)]
 pub struct DataPoint {
     time: u64, // time
     value: f64, // value
+}
+
+impl Clone for DataPoint {
+    fn clone(&self) -> DataPoint {
+        *self
+    }
 }
 
 impl DataPoint {
