@@ -2,7 +2,8 @@ use DataPoint;
 use stream::Read;
 use decode::{Decode, Error};
 
-use ::{Bit, END_MARKER, END_MARKER_LEN};
+use ::Bit;
+use encode::std_encoder::{END_MARKER, END_MARKER_LEN};
 
 #[derive(Debug)]
 pub struct StdDecoder<T: Read> {

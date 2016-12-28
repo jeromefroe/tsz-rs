@@ -32,10 +32,8 @@ pub mod stream;
 
 pub mod encode;
 pub use self::encode::Encode;
-pub use self::encode::std_encoder::END_MARKER;
-pub use self::encode::std_encoder::END_MARKER_LEN;
+pub use self::encode::std_encoder::StdEncoder;
 
 pub mod decode;
 pub use self::decode::Decode;
-
-// TODO: integration tests to write datapoints and then read them back
+pub use self::decode::std_decoder::StdDecoder;

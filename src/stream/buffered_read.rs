@@ -33,11 +33,6 @@ impl Read for BufferedReader {
 
         let byte = self.get_byte()?;
 
-        // let byte = match self.get_byte() {
-        //     Some(byte) => byte,
-        //     None => return Err(Error::EOF),
-        // };
-
         let bit = if byte & 1u8.wrapping_shl(7 - self.pos) == 0 {
             Bit::Zero
         } else {
@@ -68,11 +63,6 @@ impl Read for BufferedReader {
         self.index += 1;
         b = self.get_byte()?;
 
-        // b = match self.get_byte() {
-        //     Some(b) => b,
-        //     None => return None,
-        // };
-
         byte = byte | (b.wrapping_shr(8 - self.pos));
 
         Ok(byte)
@@ -92,12 +82,6 @@ impl Read for BufferedReader {
         }
 
         while num_bits > 0 {
-            // match self.read_bit() {
-            //     Some(bit) => {
-            //         bits = bits.wrapping_shl(1) | bit.to_u64();
-            //     }
-            //     None => return None,
-            // };
             self.read_bit().map(|bit| bits = bits.wrapping_shl(1) | bit.to_u64())?;
 
             num_bits -= 1;
@@ -111,10 +95,6 @@ impl Read for BufferedReader {
         let index = self.index;
         let pos = self.pos;
 
-        // let bits = match self.read_bits(num_bits) {
-        //     Some(bits) => bits,
-        //     None => return None,
-        // };
         let bits = self.read_bits(num_bits)?;
 
         self.index = index;
