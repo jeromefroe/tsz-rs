@@ -1,3 +1,5 @@
+use std::mem;
+
 use {Bit, DataPoint};
 use encode::Encode;
 use stream::Write;
@@ -20,7 +22,7 @@ pub struct StdEncoder<T: Write> {
     leading_zeroes: u32,
     trailing_zeroes: u32,
 
-    first: bool, // have we written the first datapoint yet
+    first: bool, // will next DataPoint be the first DataPoint encoded
 
     w: T,
 }
@@ -33,9 +35,9 @@ impl<T> StdEncoder<T>
             time: start,
             delta: 0,
             value_bits: 0,
-            leading_zeroes: 0,
-            trailing_zeroes: 0,
-            first: false,
+            leading_zeroes: 64, // sentinel value
+            trailing_zeroes: 64, // sentinal value
+            first: true,
             w: w,
         };
 
@@ -45,11 +47,10 @@ impl<T> StdEncoder<T>
         e
     }
 
-    fn write_first(&mut self, dp: DataPoint) {
-        let start = self.time;
-        self.time = dp.time;
-        self.value_bits = dp.value as u64;
-        self.delta = self.time - start;
+    fn write_first(&mut self, time: u64, value_bits: u64) {
+        self.delta = time - self.time;
+        self.time = time;
+        self.value_bits = value_bits;
 
         // write one control bit so we can distinguish a stream which contains only an initial
         // timestamp, this assumes the first bit of the END_MARKER is 1
@@ -63,12 +64,6 @@ impl<T> StdEncoder<T>
         self.w.write_bits(self.value_bits, 64);
 
         self.first = true
-    }
-
-    fn write_next(&mut self, dp: DataPoint) {
-
-        self.write_next_timestamp(dp.time);
-        self.write_next_value(dp.value)
     }
 
     fn write_next_timestamp(&mut self, time: u64) {
@@ -102,9 +97,9 @@ impl<T> StdEncoder<T>
         self.time = time;
     }
 
-    fn write_next_value(&mut self, value: f64) {
-        let value_bits = value as u64;
+    fn write_next_value(&mut self, value_bits: u64) {
         let xor = value_bits ^ self.value_bits;
+        self.value_bits = value_bits;
 
         if xor == 0 {
             // if xor with previous value is zero just store single zero bit
@@ -115,13 +110,13 @@ impl<T> StdEncoder<T>
             let leading_zeroes = xor.leading_zeros();
             let trailing_zeroes = xor.trailing_zeros();
 
-            if leading_zeroes < self.leading_zeroes && trailing_zeroes < self.trailing_zeroes {
-                // if the number of leading and trailing zeroes in this xor are less than the
-                // leading and trailing zeroes in the previous xor then we only need to store
-                // a control bit and the significant digits of this xor
+            if leading_zeroes >= self.leading_zeroes && trailing_zeroes >= self.trailing_zeroes {
+                // if the number of leading and trailing zeroes in this xor are >= the leading and
+                // trailing zeroes in the previous xor then we only need to store a control bit and
+                // the significant digits of this xor
                 self.w.write_bit(Bit::Zero);
-                self.w.write_bits(xor.wrapping_shl(trailing_zeroes),
-                                  64 - leading_zeroes - trailing_zeroes);
+                self.w.write_bits(xor.wrapping_shr(self.trailing_zeroes),
+                                  64 - self.leading_zeroes - self.trailing_zeroes);
             } else {
 
                 // if the number of leading and trailing zeroes in this xor are not less than the
@@ -137,7 +132,7 @@ impl<T> StdEncoder<T>
                 // significant_digits can always be expressed with 6 bits or less
                 let significant_digits = 64 - leading_zeroes - trailing_zeroes;
                 self.w.write_bits((significant_digits - 1) as u64, 6);
-                self.w.write_bits(xor.wrapping_shl(trailing_zeroes), significant_digits);
+                self.w.write_bits(xor.wrapping_shr(trailing_zeroes), significant_digits);
 
                 // finally we need to update the number of leading and trailing zeroes
                 self.leading_zeroes = leading_zeroes;
@@ -152,11 +147,16 @@ impl<T> Encode for StdEncoder<T>
     where T: Write
 {
     fn encode(&mut self, dp: DataPoint) {
-        if !self.first {
-            return self.write_first(dp);
+        let value_bits = unsafe { mem::transmute::<f64, u64>(dp.value) };
+
+        if self.first {
+            self.write_first(dp.time, value_bits);
+            self.first = false;
+            return;
         }
 
-        self.write_next(dp);
+        self.write_next_timestamp(dp.time);
+        self.write_next_value(value_bits)
     }
 
     fn close(mut self) -> Box<[u8]> {
@@ -179,39 +179,24 @@ mod tests {
         let e = StdEncoder::new(start_time, w);
 
         let bytes = e.close();
-
-        // 1482268055 = 00000000 00000000 00000000 00000000 01011000 01011001 10011101 10010111
-        //            =     0        0        0        0       88       89       157     151
-        // END_MARKER = 11110000 00000000 00000000 00000000 0000
-        //            =    240       0        0        0       0
         let expected_bytes: [u8; 13] = [0, 0, 0, 0, 88, 89, 157, 151, 240, 0, 0, 0, 0];
 
         assert_eq!(bytes[..], expected_bytes[..]);
     }
 
     #[test]
-    fn encode_one_datapoint() {
+    fn encode_datapoint() {
         let w = BufferedWriter::new();
         let start_time = 1482268055; // 2016-12-20T21:07:35+00:00
         let mut e = StdEncoder::new(start_time, w);
 
-        let d1 = DataPoint::new(1482268055 + 10, 1.0);
+        let d1 = DataPoint::new(1482268055 + 10, 1.24);
 
         e.encode(d1);
 
         let bytes = e.close();
-
-        // write control bit => 0
-        // write first delta (10) using 14 bits => 00000000 001010
-        // write first value (1.0) using 64 bits => 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000001
-        // write end marker using 36 bits => 11110000 00000000 00000000 00000000 0000
-        //
-        // bits written: 00000000 00010100 00000000 00000000 00000000 00000000 00000000 00000000
-        //         =        0        20        0        0        0       0         0        0
-        //               00000000 00000011 11100000 00000000 00000000 00000000 000
-        //                   0        3       224       0        0       0         0
-        let expected_bytes: [u8; 23] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 0, 0, 0, 0, 0, 0, 0,
-                                        3, 224, 0, 0, 0, 0];
+        let expected_bytes: [u8; 23] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20,
+                                        122, 225, 71, 175, 224, 0, 0, 0, 0];
 
         assert_eq!(bytes[..], expected_bytes[..]);
     }
@@ -222,30 +207,27 @@ mod tests {
         let start_time = 1482268055; // 2016-12-20T21:07:35+00:00
         let mut e = StdEncoder::new(start_time, w);
 
-        let d1 = DataPoint::new(1482268055 + 10, 1.0);
+        let d1 = DataPoint::new(1482268055 + 10, 1.24);
 
         e.encode(d1);
 
-        let d2 = DataPoint::new(1482268055 + 20, 1.0);
+        let d2 = DataPoint::new(1482268055 + 20, 1.98);
 
-        let d3 = DataPoint::new(1482268055 + 32, 2.0);
+        let d3 = DataPoint::new(1482268055 + 32, 2.37);
+        let d4 = DataPoint::new(1482268055 + 44, -7.41);
+        let d5 = DataPoint::new(1482268055 + 52, 103.50);
 
         e.encode(d2);
         e.encode(d3);
+        e.encode(d4);
+        e.encode(d5);
 
         let bytes = e.close();
-
-        // write delta of delta (0) with 1 bit => 0
-        // write xor of values (0) with 1 bit => 0
-        // write delta of delta (2) with 9 bits => 1 00 000010
-        // write xor of values (3) with 16 bits => 1 1 111110 000001 11
-        // write end marker using 36 bits => 11110000 00000000 00000000 00000000 0000
-        //
-        // bits written: 0 01000000 10111111 10000001 11111100 00000000 00000000 00000000 000000
-        //          =         64      191       129      252        0        0        0       0
-
-        let expected_bytes: [u8; 26] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 0, 0, 0, 0, 0, 0, 0,
-                                        2, 64, 191, 129, 252, 0, 0, 0, 0];
+        let expected_bytes: [u8; 61] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20,
+                                        122, 225, 71, 174, 204, 207, 30, 71, 145, 228, 121, 30,
+                                        96, 88, 61, 255, 253, 91, 214, 245, 189, 111, 91, 3, 232,
+                                        1, 245, 97, 88, 86, 21, 133, 55, 202, 1, 17, 15, 92, 40,
+                                        245, 194, 151, 128, 0, 0, 0, 0];
 
         assert_eq!(bytes[..], expected_bytes[..]);
     }

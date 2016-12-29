@@ -1,13 +1,12 @@
-use DataPoint;
+use std::mem;
+
+use {Bit, DataPoint};
 use stream::Read;
 use decode::{Decode, Error};
-
-use ::Bit;
 use encode::std_encoder::{END_MARKER, END_MARKER_LEN};
 
 #[derive(Debug)]
 pub struct StdDecoder<T: Read> {
-    n: u64, // number of timestamps decoded
     time: u64, // current time
     delta: u64, // current time delta
     value_bits: u64, // current float value as bits
@@ -16,6 +15,7 @@ pub struct StdDecoder<T: Read> {
     leading_zeroes: u32, // leading zeroes
     trailing_zeroes: u32, // trailing zeroes
 
+    first: bool, // will next DataPoint be the first DataPoint decoded
     done: bool,
 
     r: T,
@@ -26,13 +26,13 @@ impl<T> StdDecoder<T>
 {
     pub fn new(r: T) -> Self {
         StdDecoder {
-            n: 0,
             time: 0,
             delta: 0,
             value_bits: 0,
             xor: 0,
             leading_zeroes: 0,
             trailing_zeroes: 0,
+            first: true,
             done: false,
             r: r,
         }
@@ -78,10 +78,6 @@ impl<T> StdDecoder<T>
     }
 
     fn read_next_timestamp(&mut self) -> Result<u64, Error> {
-        if self.n == 1 {
-            return self.read_first_timestamp();
-        }
-
         let mut control_bits = 0;
         for _ in 0..4 {
             let bit = self.r.read_bit()?;
@@ -118,8 +114,8 @@ impl<T> StdDecoder<T>
 
         // need to sign extend negative numbers
         if dod > (1 << (size - 1)) {
-            let limit = 1 << size;
-            dod = dod.wrapping_sub(limit) + limit
+            let mask = u64::max_value() << size;
+            dod = dod | mask;
         }
 
         // by performing a wrapping_add we can ensure that negative numbers will be handled correctly
@@ -129,25 +125,21 @@ impl<T> StdDecoder<T>
         Ok(self.time)
     }
 
-    fn read_first_value(&mut self) -> Result<f64, Error> {
+    fn read_first_value(&mut self) -> Result<u64, Error> {
         self.r
             .read_bits(64)
             .map_err(|err| Error::Stream(err))
             .map(|bits| {
                 self.value_bits = bits;
-                self.value_bits as f64
+                self.value_bits
             })
     }
 
-    fn read_next_value(&mut self) -> Result<f64, Error> {
-        if self.n == 1 {
-            return self.read_first_value();
-        }
-
+    fn read_next_value(&mut self) -> Result<u64, Error> {
         let contol_bit = self.r.read_bit()?;
 
         if contol_bit == Bit::Zero {
-            return Ok(self.value_bits as f64);
+            return Ok(self.value_bits);
         }
 
         let zeroes_bit = self.r.read_bit()?;
@@ -164,7 +156,7 @@ impl<T> StdDecoder<T>
             .map_err(|err| Error::Stream(err))
             .map(|bits| {
                 self.value_bits ^= bits << self.trailing_zeroes;
-                self.value_bits as f64
+                self.value_bits
             })
     }
 }
@@ -177,15 +169,31 @@ impl<T> Decode for StdDecoder<T>
             return Err(Error::EndOfStream);
         }
 
-        self.n += 1;
-        let time = self.read_next_timestamp()
-            .map_err(|err| {
-                if err == Error::EndOfStream {
-                    self.done = true;
-                }
-                err
-            })?;
-        let value = self.read_next_value()?;
+        let time;
+        let value_bits;
+
+        if self.first {
+            self.first = false;
+            time = self.read_first_timestamp()
+                .map_err(|err| {
+                    if err == Error::EndOfStream {
+                        self.done = true;
+                    }
+                    err
+                })?;;
+            value_bits = self.read_first_value()?;
+        } else {
+            time = self.read_next_timestamp()
+                .map_err(|err| {
+                    if err == Error::EndOfStream {
+                        self.done = true;
+                    }
+                    err
+                })?;;
+            value_bits = self.read_next_value()?;
+        }
+
+        let value = unsafe { mem::transmute::<u64, f64>(value_bits) };
 
         Ok(DataPoint::new(time, value))
     }
@@ -209,12 +217,12 @@ mod tests {
 
     #[test]
     fn decode_datapoint() {
-        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 0, 0, 0, 0, 0, 0, 0, 3, 224, 0, 0,
-                         0, 0];
+        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71,
+                         175, 224, 0, 0, 0, 0];
         let r = BufferedReader::new(bytes.into_boxed_slice());
         let mut decoder = StdDecoder::new(r);
 
-        let expected_datapoint = DataPoint::new(1482268055 + 10, 1.0);
+        let expected_datapoint = DataPoint::new(1482268055 + 10, 1.24);
 
         assert_eq!(decoder.next().unwrap(), expected_datapoint);
         assert_eq!(decoder.next().err().unwrap(), Error::EndOfStream);
@@ -222,18 +230,24 @@ mod tests {
 
     #[test]
     fn decode_multiple_datapoints() {
-        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 0, 0, 0, 0, 0, 0, 0, 2, 64, 191,
-                         129, 252, 0, 0, 0, 0];
+        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71,
+                         174, 204, 207, 30, 71, 145, 228, 121, 30, 96, 88, 61, 255, 253, 91, 214,
+                         245, 189, 111, 91, 3, 232, 1, 245, 97, 88, 86, 21, 133, 55, 202, 1, 17,
+                         15, 92, 40, 245, 194, 151, 128, 0, 0, 0, 0];
         let r = BufferedReader::new(bytes.into_boxed_slice());
         let mut decoder = StdDecoder::new(r);
 
-        let first_expected_datapoint = DataPoint::new(1482268055 + 10, 1.0);
-        let second_expected_datapoint = DataPoint::new(1482268055 + 20, 1.0);
-        let third_expected_datapoint = DataPoint::new(1482268055 + 32, 2.0);
+        let first_expected_datapoint = DataPoint::new(1482268055 + 10, 1.24);
+        let second_expected_datapoint = DataPoint::new(1482268055 + 20, 1.98);
+        let third_expected_datapoint = DataPoint::new(1482268055 + 32, 2.37);
+        let fourth_expected_datapoint = DataPoint::new(1482268055 + 44, -7.41);
+        let fifth_expected_datapoint = DataPoint::new(1482268055 + 52, 103.50);
 
         assert_eq!(decoder.next().unwrap(), first_expected_datapoint);
         assert_eq!(decoder.next().unwrap(), second_expected_datapoint);
         assert_eq!(decoder.next().unwrap(), third_expected_datapoint);
+        assert_eq!(decoder.next().unwrap(), fourth_expected_datapoint);
+        assert_eq!(decoder.next().unwrap(), fifth_expected_datapoint);
         assert_eq!(decoder.next().err().unwrap(), Error::EndOfStream);
     }
 }
