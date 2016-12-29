@@ -1,5 +1,13 @@
 #TSZ
 
+[![Build Status](https://travis-ci.org/jeromefroe/tsz-rs.svg?branch=master)](https://travis-ci.org/jeromefroe/tsz-rs)
+[![Coverage Status](https://coveralls.io/repos/github/jeromefroe/tsz-rs/badge.svg?branch=master)](https://coveralls.io/github/jeromefroe/tsz-rs?branch=master)
+[![crates.io](https://img.shields.io/crates/v/tsz.svg)](https://crates.io/crates/tsz/)
+[![docs.rs](https://docs.rs/tsz/badge.svg)](https://docs.rs/tsz/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/jeromefroe/tsz-rs/master/LICENSE)
+
+[Documentation](https://docs.rs/tsz/)
+
 A crate for time series compression based upon Facebook's white paper
 [Gorilla: A Fast, Scalable, In-Memory Time Series Database](http://www.vldb.org/pvldb/vol8/p1816-teller.pdf).
 Provides functionality for compressing a stream of `DataPoint`s, which are composed of a time and
