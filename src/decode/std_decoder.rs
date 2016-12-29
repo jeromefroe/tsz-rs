@@ -5,6 +5,9 @@ use stream::Read;
 use decode::{Decode, Error};
 use encode::std_encoder::{END_MARKER, END_MARKER_LEN};
 
+/// StdDecoder
+///
+/// StdDecoder is used to decode `DataPoint`s
 #[derive(Debug)]
 pub struct StdDecoder<T: Read> {
     time: u64, // current time
@@ -24,6 +27,7 @@ pub struct StdDecoder<T: Read> {
 impl<T> StdDecoder<T>
     where T: Read
 {
+    /// new creates a new StdDecoder which will read bytes from r
     pub fn new(r: T) -> Self {
         StdDecoder {
             time: 0,

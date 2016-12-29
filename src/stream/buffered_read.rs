@@ -3,6 +3,9 @@ use std::boxed::Box;
 use Bit;
 use stream::{Error, Read};
 
+/// BufferedReader
+///
+/// BufferedReader encapsulates a buffer of bytes which can be read from.
 #[derive(Debug)]
 pub struct BufferedReader {
     bytes: Vec<u8>, // internal buffer of bytes
@@ -11,6 +14,7 @@ pub struct BufferedReader {
 }
 
 impl BufferedReader {
+    /// new creates a new `BufferedReader` from `bytes`
     pub fn new(bytes: Box<[u8]>) -> Self {
         BufferedReader {
             bytes: bytes.into_vec(),
@@ -68,34 +72,34 @@ impl Read for BufferedReader {
         Ok(byte)
     }
 
-    fn read_bits(&mut self, mut num_bits: u32) -> Result<u64, Error> {
+    fn read_bits(&mut self, mut num: u32) -> Result<u64, Error> {
         // can't read more than 64 bits into a u64
-        if num_bits > 64 {
-            num_bits = 64;
+        if num > 64 {
+            num = 64;
         }
 
         let mut bits: u64 = 0;
-        while num_bits >= 8 {
+        while num >= 8 {
             let byte = self.read_byte().map(|byte| byte as u64)?;
             bits = bits.wrapping_shl(8) | byte;
-            num_bits -= 8;
+            num -= 8;
         }
 
-        while num_bits > 0 {
+        while num > 0 {
             self.read_bit().map(|bit| bits = bits.wrapping_shl(1) | bit.to_u64())?;
 
-            num_bits -= 1;
+            num -= 1;
         }
 
         Ok(bits)
     }
 
-    fn peak_bits(&mut self, num_bits: u32) -> Result<u64, Error> {
+    fn peak_bits(&mut self, num: u32) -> Result<u64, Error> {
         // save the current index and pos so we can reset them after calling `read_bits`
         let index = self.index;
         let pos = self.pos;
 
-        let bits = self.read_bits(num_bits)?;
+        let bits = self.read_bits(num)?;
 
         self.index = index;
         self.pos = pos;

@@ -1,6 +1,16 @@
 [package]
 name = "tsz"
 version = "0.1.0"
-authors = ["Jerome Froelich <jeromefroe@uber.com>"]
+authors = ["Jerome Froelich <jeromefroelich@hotmail.com>"]
+description = "A crate for time series compression based upon Facebook's Gorilla whitepaper"
+homepage = "https://github.com/jeromefroe/tsz-rs"
+repository = "https://github.com/jeromefroe/tsz-rs.git"
+documentation = "https://docs.rs/tsz/"
+readme = "README.md"
+license = "MIT"
+keywords = ["time", "series", "compression", "gorilla"]
+
+[features]
+nightly = []
 
 [dependencies]

@@ -8,9 +8,16 @@ use stream::Write;
 // more than 12 bits we write four control bits 1111 followed by the 32 bits of the value. Since
 // encoding assumes the value is greater than 12 bits, we can store the value 0 to signal the end
 // of the stream
+
+/// END_MARKER is a special bit sequence used to indicate the end of the stream
 pub const END_MARKER: u64 = 0b111100000000000000000000000000000000;
+
+/// END_MARKER_LEN is the length, in bits, of END_MARKER
 pub const END_MARKER_LEN: u32 = 36;
 
+/// StdEncoder
+///
+/// StdEncoder is used to encode `DataPoint`s
 #[derive(Debug)]
 pub struct StdEncoder<T: Write> {
     time: u64, // current time
@@ -30,13 +37,15 @@ pub struct StdEncoder<T: Write> {
 impl<T> StdEncoder<T>
     where T: Write
 {
+    /// new creates a new StdEncoder whose starting timestamp is `start` and writes its encoded
+    /// bytes to `w`
     pub fn new(start: u64, w: T) -> Self {
         let mut e = StdEncoder {
             time: start,
             delta: 0,
             value_bits: 0,
-            leading_zeroes: 64, // sentinel value
-            trailing_zeroes: 64, // sentinal value
+            leading_zeroes: 64, // 64 is an initial sentinel value
+            trailing_zeroes: 64, // 64 is an intitial sentinel value
             first: true,
             w: w,
         };

@@ -3,13 +3,17 @@ use std::boxed::Box;
 use Bit;
 use stream::Write;
 
+/// BufferedWriter
+///
+/// BufferedWriter writes bytes to a buffer.
 #[derive(Debug)]
 pub struct BufferedWriter {
-    buf: Vec<u8>, // internal buffer of buf
+    buf: Vec<u8>,
     pos: u32, // position in the last byte in the buffer
 }
 
 impl BufferedWriter {
+    /// new creates a new BufferedWriter
     pub fn new() -> Self {
         BufferedWriter {
             buf: Vec::new(),
@@ -71,22 +75,22 @@ impl Write for BufferedWriter {
         self.buf[i + 1] |= b;
     }
 
-    fn write_bits(&mut self, mut bits: u64, mut num_bits: u32) {
+    fn write_bits(&mut self, mut bits: u64, mut num: u32) {
         // we should never write more than 64 bits for a u64
-        if num_bits > 64 {
-            num_bits = 64;
+        if num > 64 {
+            num = 64;
         }
 
-        bits = bits.wrapping_shl(64 - num_bits);
-        while num_bits >= 8 {
+        bits = bits.wrapping_shl(64 - num);
+        while num >= 8 {
             let byte = bits.wrapping_shr(56);
             self.write_byte(byte as u8);
 
             bits = bits.wrapping_shl(8);
-            num_bits -= 8;
+            num -= 8;
         }
 
-        while num_bits > 0 {
+        while num > 0 {
             let byte = bits.wrapping_shr(63);
             if byte == 1 {
                 self.write_bit(Bit::One);
@@ -95,7 +99,7 @@ impl Write for BufferedWriter {
             }
 
             bits = bits.wrapping_shl(1);
-            num_bits -= 1;
+            num -= 1;
         }
     }
 

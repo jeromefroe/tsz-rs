@@ -2,8 +2,9 @@ use std::{error, fmt};
 use DataPoint;
 use stream;
 
-// TODO: move Invalid End of Stream into Read
-
+/// Error
+///
+/// Error encapsulates the potential errors that can be encountered when decoding data
 #[derive(Debug, PartialEq)]
 pub enum Error {
     Stream(stream::Error),
@@ -40,6 +41,9 @@ impl From<stream::Error> for Error {
     }
 }
 
+/// Decode
+///
+/// Decode is the trait used to encapsulate decoding `DataPoint`s
 pub trait Decode {
     fn next(&mut self) -> Result<DataPoint, Error>;
 }
