@@ -1,4 +1,4 @@
-#TSZ
+# TSZ
 
 [![Build Status](https://travis-ci.org/jeromefroe/tsz-rs.svg?branch=master)](https://travis-ci.org/jeromefroe/tsz-rs)
 [![Coverage Status](https://coveralls.io/repos/github/jeromefroe/tsz-rs/badge.svg?branch=master)](https://coveralls.io/github/jeromefroe/tsz-rs?branch=master)
