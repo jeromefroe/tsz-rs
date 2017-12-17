@@ -1,7 +1,7 @@
 # TSZ
 
 [![Build Status](https://travis-ci.org/jeromefroe/tsz-rs.svg?branch=master)](https://travis-ci.org/jeromefroe/tsz-rs)
-[![Coverage Status](https://coveralls.io/repos/github/jeromefroe/tsz-rs/badge.svg?branch=master)](https://coveralls.io/github/jeromefroe/tsz-rs?branch=master)
+[![codecov](https://codecov.io/gh/jeromefroe/tsz-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/jeromefroe/tsz-rs)
 [![crates.io](https://img.shields.io/crates/v/tsz.svg)](https://crates.io/crates/tsz/)
 [![docs.rs](https://docs.rs/tsz/badge.svg)](https://docs.rs/tsz/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/jeromefroe/tsz-rs/master/LICENSE)
