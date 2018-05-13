@@ -1,6 +1,6 @@
 use std::{error, fmt};
-use DataPoint;
 use stream;
+use DataPoint;
 
 /// Error
 ///

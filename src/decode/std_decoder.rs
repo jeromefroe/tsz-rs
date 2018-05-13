@@ -1,21 +1,19 @@
-use std::mem;
-
-use {Bit, DataPoint};
-use stream::Read;
 use decode::{Decode, Error};
 use encode::std_encoder::{END_MARKER, END_MARKER_LEN};
+use stream::Read;
+use {Bit, DataPoint};
 
 /// StdDecoder
 ///
 /// StdDecoder is used to decode `DataPoint`s
 #[derive(Debug)]
 pub struct StdDecoder<T: Read> {
-    time: u64, // current time
-    delta: u64, // current time delta
+    time: u64,       // current time
+    delta: u64,      // current time delta
     value_bits: u64, // current float value as bits
-    xor: u64, // current xor
+    xor: u64,        // current xor
 
-    leading_zeroes: u32, // leading zeroes
+    leading_zeroes: u32,  // leading zeroes
     trailing_zeroes: u32, // trailing zeroes
 
     first: bool, // will next DataPoint be the first DataPoint decoded
@@ -25,7 +23,8 @@ pub struct StdDecoder<T: Read> {
 }
 
 impl<T> StdDecoder<T>
-    where T: Read
+where
+    T: Read,
 {
     /// new creates a new StdDecoder which will read bytes from r
     pub fn new(r: T) -> Self {
@@ -38,7 +37,7 @@ impl<T> StdDecoder<T>
             trailing_zeroes: 0,
             first: true,
             done: false,
-            r: r,
+            r,
         }
     }
 
@@ -60,23 +59,23 @@ impl<T> StdDecoder<T>
         if control_bit == 1 {
             return self.r
                 .read_bits(END_MARKER_LEN)
-                .map_err(|err| Error::Stream(err))
-                .and_then(|marker| if marker == END_MARKER {
-                    Err(Error::EndOfStream)
-                } else {
-                    Err(Error::InvalidEndOfStream)
+                .map_err(Error::Stream)
+                .and_then(|marker| {
+                    if marker == END_MARKER {
+                        Err(Error::EndOfStream)
+                    } else {
+                        Err(Error::InvalidEndOfStream)
+                    }
                 });
         }
 
         // stream contains datapoints so we can throw away the control bit
         self.r.read_bit()?;
 
-        self.r
-            .read_bits(14)
-            .map(|delta| {
-                self.delta = delta;
-                self.time += delta;
-            })?;
+        self.r.read_bits(14).map(|delta| {
+            self.delta = delta;
+            self.time += delta;
+        })?;
 
         Ok(self.time)
     }
@@ -102,14 +101,13 @@ impl<T> StdDecoder<T>
             2 => 9,
             3 => 12,
             4 => {
-                return self.r
-                    .read_bits(32)
-                    .map_err(|err| Error::Stream(err))
-                    .and_then(|dod| if dod == 0 {
+                return self.r.read_bits(32).map_err(Error::Stream).and_then(|dod| {
+                    if dod == 0 {
                         Err(Error::EndOfStream)
                     } else {
                         Ok(dod)
-                    });
+                    }
+                });
             }
             _ => unreachable!(),
         };
@@ -119,7 +117,7 @@ impl<T> StdDecoder<T>
         // need to sign extend negative numbers
         if dod > (1 << (size - 1)) {
             let mask = u64::max_value() << size;
-            dod = dod | mask;
+            dod |= mask;
         }
 
         // by performing a wrapping_add we can ensure that negative numbers will be handled correctly
@@ -130,13 +128,10 @@ impl<T> StdDecoder<T>
     }
 
     fn read_first_value(&mut self) -> Result<u64, Error> {
-        self.r
-            .read_bits(64)
-            .map_err(|err| Error::Stream(err))
-            .map(|bits| {
-                self.value_bits = bits;
-                self.value_bits
-            })
+        self.r.read_bits(64).map_err(Error::Stream).map(|bits| {
+            self.value_bits = bits;
+            self.value_bits
+        })
     }
 
     fn read_next_value(&mut self) -> Result<u64, Error> {
@@ -155,18 +150,16 @@ impl<T> StdDecoder<T>
         }
 
         let size = 64 - self.leading_zeroes - self.trailing_zeroes;
-        self.r
-            .read_bits(size)
-            .map_err(|err| Error::Stream(err))
-            .map(|bits| {
-                self.value_bits ^= bits << self.trailing_zeroes;
-                self.value_bits
-            })
+        self.r.read_bits(size).map_err(Error::Stream).map(|bits| {
+            self.value_bits ^= bits << self.trailing_zeroes;
+            self.value_bits
+        })
     }
 }
 
 impl<T> Decode for StdDecoder<T>
-    where T: Read
+where
+    T: Read,
 {
     fn next(&mut self) -> Result<DataPoint, Error> {
         if self.done {
@@ -174,30 +167,26 @@ impl<T> Decode for StdDecoder<T>
         }
 
         let time;
-        let value_bits;
-
-        if self.first {
+        let value_bits = if self.first {
             self.first = false;
-            time = self.read_first_timestamp()
-                .map_err(|err| {
-                    if err == Error::EndOfStream {
-                        self.done = true;
-                    }
-                    err
-                })?;;
-            value_bits = self.read_first_value()?;
+            time = self.read_first_timestamp().map_err(|err| {
+                if err == Error::EndOfStream {
+                    self.done = true;
+                }
+                err
+            })?;;
+            self.read_first_value()?
         } else {
-            time = self.read_next_timestamp()
-                .map_err(|err| {
-                    if err == Error::EndOfStream {
-                        self.done = true;
-                    }
-                    err
-                })?;;
-            value_bits = self.read_next_value()?;
-        }
+            time = self.read_next_timestamp().map_err(|err| {
+                if err == Error::EndOfStream {
+                    self.done = true;
+                }
+                err
+            })?;;
+            self.read_next_value()?
+        };
 
-        let value = unsafe { mem::transmute::<u64, f64>(value_bits) };
+        let value = f64::from_bits(value_bits);
 
         Ok(DataPoint::new(time, value))
     }
@@ -205,10 +194,10 @@ impl<T> Decode for StdDecoder<T>
 
 #[cfg(test)]
 mod tests {
-    use {DataPoint, Decode};
-    use stream::BufferedReader;
-    use decode::Error;
     use super::StdDecoder;
+    use decode::Error;
+    use stream::BufferedReader;
+    use {DataPoint, Decode};
 
     #[test]
     fn create_new_decoder() {
@@ -221,8 +210,10 @@ mod tests {
 
     #[test]
     fn decode_datapoint() {
-        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71,
-                         175, 224, 0, 0, 0, 0];
+        let bytes = vec![
+            0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71, 175, 224, 0, 0,
+            0, 0,
+        ];
         let r = BufferedReader::new(bytes.into_boxed_slice());
         let mut decoder = StdDecoder::new(r);
 
@@ -234,10 +225,11 @@ mod tests {
 
     #[test]
     fn decode_multiple_datapoints() {
-        let bytes = vec![0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71,
-                         174, 204, 207, 30, 71, 145, 228, 121, 30, 96, 88, 61, 255, 253, 91, 214,
-                         245, 189, 111, 91, 3, 232, 1, 245, 97, 88, 86, 21, 133, 55, 202, 1, 17,
-                         15, 92, 40, 245, 194, 151, 128, 0, 0, 0, 0];
+        let bytes = vec![
+            0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71, 174, 204, 207,
+            30, 71, 145, 228, 121, 30, 96, 88, 61, 255, 253, 91, 214, 245, 189, 111, 91, 3, 232, 1,
+            245, 97, 88, 86, 21, 133, 55, 202, 1, 17, 15, 92, 40, 245, 194, 151, 128, 0, 0, 0, 0,
+        ];
         let r = BufferedReader::new(bytes.into_boxed_slice());
         let mut decoder = StdDecoder::new(r);
 
