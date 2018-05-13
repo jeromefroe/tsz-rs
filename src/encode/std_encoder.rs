@@ -1,8 +1,8 @@
 use std::mem;
 
-use {Bit, DataPoint};
 use encode::Encode;
 use stream::Write;
+use {Bit, DataPoint};
 
 // END_MARKER relies on the fact that when we encode the delta of delta for a number that requires
 // more than 12 bits we write four control bits 1111 followed by the 32 bits of the value. Since
@@ -10,7 +10,7 @@ use stream::Write;
 // of the stream
 
 /// END_MARKER is a special bit sequence used to indicate the end of the stream
-pub const END_MARKER: u64 = 0b111100000000000000000000000000000000;
+pub const END_MARKER: u64 = 0b1111_0000_0000_0000_0000_0000_0000_0000_0000;
 
 /// END_MARKER_LEN is the length, in bits, of END_MARKER
 pub const END_MARKER_LEN: u32 = 36;
@@ -20,8 +20,8 @@ pub const END_MARKER_LEN: u32 = 36;
 /// StdEncoder is used to encode `DataPoint`s
 #[derive(Debug)]
 pub struct StdEncoder<T: Write> {
-    time: u64, // current time
-    delta: u64, // current time delta
+    time: u64,       // current time
+    delta: u64,      // current time delta
     value_bits: u64, // current float value as bits
 
     // store the number of leading and trailing zeroes in the current xor as u32 so we
@@ -35,7 +35,8 @@ pub struct StdEncoder<T: Write> {
 }
 
 impl<T> StdEncoder<T>
-    where T: Write
+where
+    T: Write,
 {
     /// new creates a new StdEncoder whose starting timestamp is `start` and writes its encoded
     /// bytes to `w`
@@ -44,10 +45,10 @@ impl<T> StdEncoder<T>
             time: start,
             delta: 0,
             value_bits: 0,
-            leading_zeroes: 64, // 64 is an initial sentinel value
+            leading_zeroes: 64,  // 64 is an initial sentinel value
             trailing_zeroes: 64, // 64 is an intitial sentinel value
             first: true,
-            w: w,
+            w,
         };
 
         // write timestamp header
@@ -80,6 +81,7 @@ impl<T> StdEncoder<T>
         let dod = delta.wrapping_sub(self.delta) as i32; // delta of delta
 
         // store the delta of delta using variable length encoding
+        #[cfg_attr(feature = "cargo-clippy", allow(match_overlapping_arm))]
         match dod {
             0 => {
                 self.w.write_bit(Bit::Zero);
@@ -124,36 +126,38 @@ impl<T> StdEncoder<T>
                 // trailing zeroes in the previous xor then we only need to store a control bit and
                 // the significant digits of this xor
                 self.w.write_bit(Bit::Zero);
-                self.w.write_bits(xor.wrapping_shr(self.trailing_zeroes),
-                                  64 - self.leading_zeroes - self.trailing_zeroes);
+                self.w.write_bits(
+                    xor.wrapping_shr(self.trailing_zeroes),
+                    64 - self.leading_zeroes - self.trailing_zeroes,
+                );
             } else {
-
                 // if the number of leading and trailing zeroes in this xor are not less than the
                 // leading and trailing zeroes in the previous xor then we store a control bit and
                 // use 6 bits to store the number of leading zeroes and 6 bits to store the number
                 // of significant digits before storing the significant digits themselves
 
                 self.w.write_bit(Bit::One);
-                self.w.write_bits(leading_zeroes as u64, 6);
+                self.w.write_bits(u64::from(leading_zeroes), 6);
 
                 // if significant_digits is 64 we cannot encode it using 6 bits, however since
                 // significant_digits is guaranteed to be at least 1 we can subtract 1 to ensure
                 // significant_digits can always be expressed with 6 bits or less
                 let significant_digits = 64 - leading_zeroes - trailing_zeroes;
-                self.w.write_bits((significant_digits - 1) as u64, 6);
-                self.w.write_bits(xor.wrapping_shr(trailing_zeroes), significant_digits);
+                self.w.write_bits(u64::from(significant_digits - 1), 6);
+                self.w
+                    .write_bits(xor.wrapping_shr(trailing_zeroes), significant_digits);
 
                 // finally we need to update the number of leading and trailing zeroes
                 self.leading_zeroes = leading_zeroes;
                 self.trailing_zeroes = trailing_zeroes;
             }
-
         }
     }
 }
 
 impl<T> Encode for StdEncoder<T>
-    where T: Write
+where
+    T: Write,
 {
     fn encode(&mut self, dp: DataPoint) {
         let value_bits = unsafe { mem::transmute::<f64, u64>(dp.value) };
@@ -176,10 +180,10 @@ impl<T> Encode for StdEncoder<T>
 
 #[cfg(test)]
 mod tests {
-    use DataPoint;
+    use super::StdEncoder;
     use encode::Encode;
     use stream::BufferedWriter;
-    use super::StdEncoder;
+    use DataPoint;
 
     #[test]
     fn create_new_encoder() {
@@ -204,8 +208,10 @@ mod tests {
         e.encode(d1);
 
         let bytes = e.close();
-        let expected_bytes: [u8; 23] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20,
-                                        122, 225, 71, 175, 224, 0, 0, 0, 0];
+        let expected_bytes: [u8; 23] = [
+            0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71, 175, 224, 0, 0,
+            0, 0,
+        ];
 
         assert_eq!(bytes[..], expected_bytes[..]);
     }
@@ -232,11 +238,11 @@ mod tests {
         e.encode(d5);
 
         let bytes = e.close();
-        let expected_bytes: [u8; 61] = [0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20,
-                                        122, 225, 71, 174, 204, 207, 30, 71, 145, 228, 121, 30,
-                                        96, 88, 61, 255, 253, 91, 214, 245, 189, 111, 91, 3, 232,
-                                        1, 245, 97, 88, 86, 21, 133, 55, 202, 1, 17, 15, 92, 40,
-                                        245, 194, 151, 128, 0, 0, 0, 0];
+        let expected_bytes: [u8; 61] = [
+            0, 0, 0, 0, 88, 89, 157, 151, 0, 20, 127, 231, 174, 20, 122, 225, 71, 174, 204, 207,
+            30, 71, 145, 228, 121, 30, 96, 88, 61, 255, 253, 91, 214, 245, 189, 111, 91, 3, 232, 1,
+            245, 97, 88, 86, 21, 133, 55, 202, 1, 17, 15, 92, 40, 245, 194, 151, 128, 0, 0, 0, 0,
+        ];
 
         assert_eq!(bytes[..], expected_bytes[..]);
     }

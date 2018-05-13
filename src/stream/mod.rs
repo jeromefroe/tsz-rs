@@ -37,7 +37,7 @@ pub trait Read {
     fn read_byte(&mut self) -> Result<u8, Error>;
 
     /// Read `num` bits from the underlying stream.
-    fn read_bits(&mut self, mut num: u32) -> Result<u64, Error>;
+    fn read_bits(&mut self, num: u32) -> Result<u64, Error>;
 
     /// Get the next `num` bits, but do not update place in stream.
     fn peak_bits(&mut self, num: u32) -> Result<u64, Error>;

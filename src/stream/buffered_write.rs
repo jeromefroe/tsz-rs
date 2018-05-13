@@ -1,12 +1,12 @@
 use std::boxed::Box;
 
-use Bit;
 use stream::Write;
+use Bit;
 
 /// BufferedWriter
 ///
 /// BufferedWriter writes bytes to a buffer.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BufferedWriter {
     buf: Vec<u8>,
     pos: u32, // position in the last byte in the buffer
@@ -104,15 +104,15 @@ impl Write for BufferedWriter {
     }
 
     fn close(self) -> Box<[u8]> {
-        return self.buf.into_boxed_slice();
+        self.buf.into_boxed_slice()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use Bit;
-    use stream::Write;
     use super::BufferedWriter;
+    use stream::Write;
+    use Bit;
 
     #[test]
     fn write_bit() {
@@ -209,8 +209,6 @@ mod tests {
         assert_eq!(b.buf[1], 107); // 0b01101011 = 107
         assert_eq!(b.buf[2], 56); // 0b00111000 = 56
         assert_eq!(b.buf[3], 247); // 0b11110111 = 247
-
-
     }
 
     #[test]

@@ -115,7 +115,7 @@ pub enum Bit {
 
 impl Bit {
     /// Convert a bit to u64, so `Zero` becomes 0 and `One` becomes 1.
-    pub fn to_u64(self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         match self {
             Bit::Zero => 0,
             Bit::One => 1,
@@ -141,30 +141,27 @@ impl Clone for DataPoint {
 impl DataPoint {
     // Create a new DataPoint from a time and value.
     pub fn new(time: u64, value: f64) -> Self {
-        DataPoint {
-            time: time,
-            value: value,
-        }
+        DataPoint { time, value }
     }
 }
 
 pub mod stream;
 
 pub mod encode;
-pub use self::encode::Encode;
 pub use self::encode::std_encoder::StdEncoder;
+pub use self::encode::Encode;
 
 pub mod decode;
-pub use self::decode::Decode;
 pub use self::decode::std_decoder::StdDecoder;
+pub use self::decode::Decode;
 
 #[cfg(test)]
 mod tests {
     use std::vec::Vec;
 
-    use super::{DataPoint, Encode, Decode, StdEncoder, StdDecoder};
-    use super::stream::{BufferedReader, BufferedWriter};
     use super::decode::Error;
+    use super::stream::{BufferedReader, BufferedWriter};
+    use super::{DataPoint, Decode, Encode, StdDecoder, StdEncoder};
 
     const DATA: &'static str = "1482892270,1.76
 1482892280,7.78

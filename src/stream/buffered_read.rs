@@ -1,7 +1,7 @@
 use std::boxed::Box;
 
-use Bit;
 use stream::{Error, Read};
+use Bit;
 
 /// BufferedReader
 ///
@@ -9,8 +9,8 @@ use stream::{Error, Read};
 #[derive(Debug)]
 pub struct BufferedReader {
     bytes: Vec<u8>, // internal buffer of bytes
-    index: usize, // index into bytes
-    pos: u32, // position in the byte we are currenlty reading
+    index: usize,   // index into bytes
+    pos: u32,       // position in the byte we are currenlty reading
 }
 
 impl BufferedReader {
@@ -24,7 +24,7 @@ impl BufferedReader {
     }
 
     fn get_byte(&mut self) -> Result<u8, Error> {
-        self.bytes.get(self.index).map(|byte| *byte).ok_or(Error::EOF)
+        self.bytes.get(self.index).cloned().ok_or(Error::EOF)
     }
 }
 
@@ -62,12 +62,12 @@ impl Read for BufferedReader {
         let mut byte = 0;
         let mut b = self.get_byte()?;
 
-        byte = byte | (b.wrapping_shl(self.pos));
+        byte |= b.wrapping_shl(self.pos);
 
         self.index += 1;
         b = self.get_byte()?;
 
-        byte = byte | (b.wrapping_shr(8 - self.pos));
+        byte |= b.wrapping_shr(8 - self.pos);
 
         Ok(byte)
     }
@@ -80,13 +80,14 @@ impl Read for BufferedReader {
 
         let mut bits: u64 = 0;
         while num >= 8 {
-            let byte = self.read_byte().map(|byte| byte as u64)?;
+            let byte = self.read_byte().map(u64::from)?;
             bits = bits.wrapping_shl(8) | byte;
             num -= 8;
         }
 
         while num > 0 {
-            self.read_bit().map(|bit| bits = bits.wrapping_shl(1) | bit.to_u64())?;
+            self.read_bit()
+                .map(|bit| bits = bits.wrapping_shl(1) | bit.to_u64())?;
 
             num -= 1;
         }
@@ -110,9 +111,9 @@ impl Read for BufferedReader {
 
 #[cfg(test)]
 mod tests {
-    use Bit;
-    use stream::{Error, Read};
     use super::BufferedReader;
+    use stream::{Error, Read};
+    use Bit;
 
     #[test]
     fn read_bit() {
