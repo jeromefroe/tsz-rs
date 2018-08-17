@@ -57,7 +57,8 @@ where
         // sanity check to confirm that the stream contains more than just the initial timestamp
         let control_bit = self.r.peak_bits(1)?;
         if control_bit == 1 {
-            return self.r
+            return self
+                .r
                 .read_bits(END_MARKER_LEN)
                 .map_err(Error::Stream)
                 .and_then(|marker| {
