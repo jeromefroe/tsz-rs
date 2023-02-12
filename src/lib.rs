@@ -143,6 +143,16 @@ impl DataPoint {
     pub fn new(time: u64, value: f64) -> Self {
         DataPoint { time, value }
     }
+
+    // Get the time for this DataPoint.
+    pub fn get_time(&self) -> u64 {
+        self.time
+    }
+
+    // Get the value for this DataPoint.
+    pub fn get_value(&self) -> f64 {
+        self.value
+    }
 }
 
 pub mod stream;
