@@ -66,12 +66,12 @@ impl Write for BufferedWriter {
         }
 
         let i = self.last_index();
-        let mut b = byte.wrapping_shr(self.pos) as u8;
+        let mut b = byte.wrapping_shr(self.pos);
         self.buf[i] |= b;
 
         self.grow();
 
-        b = byte.wrapping_shl(8 - self.pos) as u8;
+        b = byte.wrapping_shl(8 - self.pos);
         self.buf[i + 1] |= b;
     }
 

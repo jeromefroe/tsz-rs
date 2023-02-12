@@ -11,7 +11,6 @@ pub struct StdDecoder<T: Read> {
     time: u64,       // current time
     delta: u64,      // current time delta
     value_bits: u64, // current float value as bits
-    xor: u64,        // current xor
 
     leading_zeroes: u32,  // leading zeroes
     trailing_zeroes: u32, // trailing zeroes
@@ -32,7 +31,6 @@ where
             time: 0,
             delta: 0,
             value_bits: 0,
-            xor: 0,
             leading_zeroes: 0,
             trailing_zeroes: 0,
             first: true,
@@ -175,7 +173,7 @@ where
                     self.done = true;
                 }
                 err
-            })?;;
+            })?;
             self.read_first_value()?
         } else {
             time = self.read_next_timestamp().map_err(|err| {
@@ -183,7 +181,7 @@ where
                     self.done = true;
                 }
                 err
-            })?;;
+            })?;
             self.read_next_value()?
         };
 

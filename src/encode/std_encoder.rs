@@ -1,5 +1,3 @@
-use std::mem;
-
 use encode::Encode;
 use stream::Write;
 use {Bit, DataPoint};
@@ -81,20 +79,20 @@ where
         let dod = delta.wrapping_sub(self.delta) as i32; // delta of delta
 
         // store the delta of delta using variable length encoding
-        #[cfg_attr(feature = "cargo-clippy", allow(match_overlapping_arm))]
+        #[cfg_attr(feature = "cargo-clippy", allow(clippy::match_overlapping_arm))]
         match dod {
             0 => {
                 self.w.write_bit(Bit::Zero);
             }
-            -63...64 => {
+            -63..=64 => {
                 self.w.write_bits(0b10, 2);
                 self.w.write_bits(dod as u64, 7);
             }
-            -255...256 => {
+            -255..=256 => {
                 self.w.write_bits(0b110, 3);
                 self.w.write_bits(dod as u64, 9);
             }
-            -2047...2048 => {
+            -2047..=2048 => {
                 self.w.write_bits(0b1110, 4);
                 self.w.write_bits(dod as u64, 12);
             }
@@ -160,7 +158,7 @@ where
     T: Write,
 {
     fn encode(&mut self, dp: DataPoint) {
-        let value_bits = unsafe { mem::transmute::<f64, u64>(dp.value) };
+        let value_bits = dp.value.to_bits();
 
         if self.first {
             self.write_first(dp.time, value_bits);
