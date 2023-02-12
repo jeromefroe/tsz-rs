@@ -160,7 +160,7 @@ where
     T: Write,
 {
     fn encode(&mut self, dp: DataPoint) {
-        let value_bits = unsafe { mem::transmute::<f64, u64>(dp.value) };
+        let value_bits = dp.value.to_bits();
 
         if self.first {
             self.write_first(dp.time, value_bits);
