@@ -1,5 +1,3 @@
-use std::mem;
-
 use encode::Encode;
 use stream::Write;
 use {Bit, DataPoint};
