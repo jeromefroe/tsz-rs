@@ -1,4 +1,4 @@
-use std::{error, fmt};
+use std::fmt;
 use stream;
 use DataPoint;
 
@@ -20,17 +20,6 @@ impl fmt::Display for Error {
             Error::InvalidInitialTimestamp => write!(f, "Failed to parse intitial timestamp"),
             Error::InvalidEndOfStream => write!(f, "Encountered invalid end of steam marker"),
             Error::EndOfStream => write!(f, "Encountered end of the stream"),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Stream(ref err) => err.description(),
-            Error::InvalidInitialTimestamp => "Failed to parse initial timestamp",
-            Error::InvalidEndOfStream => "Encountered invalid end of steam marker",
-            Error::EndOfStream => "Encountered end of the stream",
         }
     }
 }
