@@ -126,7 +126,7 @@ impl Bit {
 /// DataPoint
 ///
 /// Struct used to represent a single datapoint. Consists of a time and value.
-#[derive(Debug, PartialEq, Copy)]
+#[derive(Debug, PartialEq, Copy, serde::Deserialize, serde::Serialize)]
 pub struct DataPoint {
     time: u64,
     value: f64,

@@ -14,3 +14,4 @@ keywords = ["time", "series", "compression", "gorilla"]
 nightly = []
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
