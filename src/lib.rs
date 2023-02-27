@@ -104,6 +104,8 @@
 //! }
 //! ```
 
+use std::cmp::Ordering;
+
 /// Bit
 ///
 /// An enum used to represent a single bit, can be either `Zero` or `One`.
@@ -126,7 +128,7 @@ impl Bit {
 /// DataPoint
 ///
 /// Struct used to represent a single datapoint. Consists of a time and value.
-#[derive(Debug, PartialEq, Copy, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Copy, serde::Deserialize, serde::Serialize)]
 pub struct DataPoint {
     time: u64,
     value: f64,
@@ -152,6 +154,34 @@ impl DataPoint {
     // Get the value for this DataPoint.
     pub fn get_value(&self) -> f64 {
         self.value
+    }
+}
+
+impl PartialEq for DataPoint {
+    #[inline]
+    fn eq(&self, other: &DataPoint) -> bool {
+        if self.time == other.time {
+            if self.value.is_nan() {
+                return other.value.is_nan();
+            } else {
+                return self.value == other.value;
+            }
+        }
+        false
+    }
+}
+
+impl Eq for DataPoint {}
+
+impl Ord for DataPoint {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.time.cmp(&other.time)
+    }
+}
+
+impl PartialOrd for DataPoint {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
