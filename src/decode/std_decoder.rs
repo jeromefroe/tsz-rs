@@ -99,19 +99,16 @@ where
             1 => 7,
             2 => 9,
             3 => 12,
-            4 => {
-                return self.r.read_bits(32).map_err(Error::Stream).and_then(|dod| {
-                    if dod == 0 {
-                        Err(Error::EndOfStream)
-                    } else {
-                        Ok(dod)
-                    }
-                });
-            }
+            4 => 32,
             _ => unreachable!(),
         };
 
         let mut dod = self.r.read_bits(size)?;
+
+        if control_bits == 4 && dod == 0 {
+            // If the control bits are 1111 and delta-of-delta is 0, the stream has ended.
+            return Err(Error::EndOfStream);
+        }
 
         // need to sign extend negative numbers
         if dod > (1 << (size - 1)) {
