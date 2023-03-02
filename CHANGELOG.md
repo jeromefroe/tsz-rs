@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.3](https://github.com/jeromefroe/tsz-rs/tree/0.1.3) - 2023-03-01
+
+- Implement `Ord` and `PartialOrd` traits.
+
 ## [v0.1.2](https://github.com/jeromefroe/tsz-rs/tree/0.1.2) - 2023-02-13
 
 - Derive traits to serialize and deserialize a `DataPoint`.
