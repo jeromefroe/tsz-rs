@@ -15,3 +15,6 @@ nightly = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+test-case = "3.0.0"

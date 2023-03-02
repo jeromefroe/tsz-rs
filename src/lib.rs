@@ -197,13 +197,16 @@ pub use self::decode::Decode;
 
 #[cfg(test)]
 mod tests {
+    extern crate test_case;
+
     use std::vec::Vec;
 
     use super::decode::Error;
     use super::stream::{BufferedReader, BufferedWriter};
     use super::{DataPoint, Decode, Encode, StdDecoder, StdEncoder};
 
-    const DATA: &'static str = "1482892270,1.76
+    // A representative time series.
+    const DATA_1: &'static str = "1482892270,1.76
 1482892280,7.78
 1482892288,7.95
 1482892292,5.53
@@ -221,14 +224,20 @@ mod tests {
 1482892800,12908.12
 ";
 
-    #[test]
-    fn integration_test() {
+    // A time series where there is relatively large variation in times.
+    const DATA_2: &'static str = "0,0.0
+1,0.0
+5000,0.0";
+
+    #[test_case::test_case(1482892260, DATA_1 ; "a representative time series")]
+    #[test_case::test_case(0, DATA_2 ; "a time series with relatively large variation in times")]
+    fn integration_test(start_time: u64, data: &str) {
         let w = BufferedWriter::new();
-        let mut encoder = StdEncoder::new(1482892260, w);
+        let mut encoder = StdEncoder::new(start_time, w);
 
         let mut original_datapoints = Vec::new();
 
-        for line in DATA.lines() {
+        for line in data.lines() {
             let substrings: Vec<&str> = line.split(",").collect();
             let t = substrings[0].parse::<u64>().unwrap();
             let v = substrings[1].parse::<f64>().unwrap();
