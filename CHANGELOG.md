@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.4](https://github.com/jeromefroe/tsz-rs/tree/0.1.4) - 2023-03-03
+
+- Fix bug When the control sequence was 1111.
+
 ## [v0.1.3](https://github.com/jeromefroe/tsz-rs/tree/0.1.3) - 2023-03-01
 
 - Implement `Ord` and `PartialOrd` traits.
